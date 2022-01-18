@@ -1,7 +1,11 @@
 #include <SPI.h>
 #include <Wire.h>
 #define SEALEVELPRESSURE_HPA (1013.25)
-#define OLED_RESET 16  // GPIO0
+#define OLED_RESET -1 // GPIO0
+#define buzzer 14 // D15
+
+
+
 
 #include <Adafruit_I2CDevice.h>
 #include <Adafruit_GFX.h>
@@ -14,6 +18,7 @@ Adafruit_BME280 bme;
 float bme_temperature = 0;
 float bme_humidity = 0;
 
+
 bool show_TorH = 1;  
 unsigned status;
 
@@ -22,8 +27,17 @@ bool alarmActive = false;
 
 float alarmAt = -10;
 
+void beep() {
+  tone(buzzer , 500);
+  delay (1000); // mit der Dauer von einer Sekunde
+  noTone(buzzer ); // Ausschalten des Tons.
+  delay(500);
+}
  
 void setup() {
+
+  beep();
+  beep();
   
   Serial.begin(9600);
 
@@ -31,15 +45,16 @@ void setup() {
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // initialize with the I2C addr 0x3C (for the 64x48)
   display.clearDisplay();
 
- status = bme.begin(0x76);  
- //status = bme.begin();  
-  // You can also pass in a Wire library object like &Wire2
-  // status = bme.begin(0x76, &Wire2)
+  status = bme.begin(0x76);  
   if (!status) {
       Serial.println("Could not find a valid BME280 sensor, check wiring, address, sensor ID!");
       Serial.print("SensorID was: 0x"); Serial.println(bme.sensorID(),16);
       Serial.print("        ID of 0xFF probably means a bad address, a BMP 180 or BMP 085\n");
+      beep();
+      delay(1000);
+      beep();
   }
+
 
 }
 
@@ -83,73 +98,71 @@ void showHumidityOLED(String v) { // value and unit
 }
 
 void loop() {
- // bme76_Detected
-  
-  if (status)
-  {
-    display.clearDisplay();
-      
-    bme_temperature = bme.readTemperature();
-    bme_humidity = bme.readHumidity();
-     
-    if ( bme_temperature < -15 && alarmEnabled == false )  // aktiviert den Alarm wenn die Temp erstmalig unter -15 fällt
-    {
-       alarmEnabled = true;
-       Serial.println("Temperature going under -15, alarm active now.");
-    }
-
-    if ( alarmEnabled ) 
-    {
-       display.setTextSize(2);
-       display.setTextColor(WHITE);
-       display.setCursor(110,50);
-       display.println("A");
-       Serial.println("Alarm enabled");
-
-       if( bme_temperature > alarmAt ) alarmActive = true; else alarmActive = false;
-       
-       
-    }
-    
-    if (show_TorH)
-    {
-      Serial.print(F("Temperature Sensor [°C]:\t\t"));
-      Serial.println(bme_temperature);
-      int btr = round(bme_temperature);
-      if( btr < 0 ) 
-      {
-        btr = -btr;
-        showTemperatureOLED(String(btr),true);
-      } else  showTemperatureOLED(String(btr),false);
-      
-      show_TorH = !show_TorH;
-    }
-    else
-    {
-      if( alarmActive ) {
-         display.setTextSize(4);
-         display.setTextColor(WHITE);
-         display.setCursor(2,8);
-         display.println("ALARM"); 
-         // BEEP AUSLÖSEN
-      } else {
-        Serial.print(F("Humidity Sensor [%]:\t\t\t")); 
-        Serial.println(bme_humidity);
-        int bhr = round(bme_humidity);
-        showHumidityOLED(String(bhr)+"%");
-      }
-      show_TorH = !show_TorH;
-    }
  
-  } else {
-       display.setTextSize(1);
-       display.setTextColor(WHITE);
-       display.setCursor(0,0);
-       display.println("BME280");
-       display.println("NOT FOUND");
+  display.clearDisplay();
+    
+  bme_temperature = bme.readTemperature();
+  bme_humidity = bme.readHumidity();
+    
+  if ( bme_temperature < alarmAt && alarmEnabled == false )  // aktiviert den Alarm wenn die Temp erstmalig unter -15 fällt
+  {
+      alarmEnabled = true;
+      Serial.println("Temperature going under configured temp, alarm active now.");
   }
 
-  display.display(); 
-  delay(10000);  
+
+  if ( alarmEnabled ) 
+  {
+      display.setTextSize(2);
+      display.setTextColor(WHITE);
+      display.setCursor(110,50);
+      display.println("A");
+      Serial.println("Alarm enabled");
+
+      if( bme_temperature > alarmAt ) alarmActive = true; else alarmActive = false;
+      
+      
+  }
+  
+  if (show_TorH)
+  {
+    Serial.print(F("Temperature Sensor [°C]:\t\t"));
+    Serial.println(bme_temperature);
+    int btr = round(bme_temperature);
+    if( btr < 0 ) 
+    {
+      btr = -btr;
+      showTemperatureOLED(String(btr),true);
+    } else  showTemperatureOLED(String(btr),false);
+    
+    show_TorH = !show_TorH;
+  }
+  else
+  {
+    if( alarmActive ) {
+        display.setTextSize(4);
+        display.setTextColor(WHITE);
+        display.setCursor(2,8);
+        display.println("ALARM"); 
+        // BEEP AUSLÖSEN
+    } else {
+      Serial.print(F("Humidity Sensor [%]:\t\t\t")); 
+      Serial.println(bme_humidity);
+      int bhr = round(bme_humidity);
+      showHumidityOLED(String(bhr)+"%");
+    }
+    show_TorH = !show_TorH;
+  }
+
+} else {
+      display.setTextSize(1);
+      display.setTextColor(WHITE);
+      display.setCursor(0,0);
+      display.println("BME280");
+      display.println("NOT FOUND");
 }
+
+display.display(); 
+delay(10000);  
+
 
